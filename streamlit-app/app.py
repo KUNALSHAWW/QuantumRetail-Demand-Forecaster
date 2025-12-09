@@ -1,9 +1,12 @@
 import streamlit as st
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend to save memory
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 from datetime import datetime
 import sys, os
+import gc  # Garbage collector for memory management
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from src.ingest_transform import get_processed_data
 from src.model_selection import time_series_split, train_and_select_model
@@ -68,14 +71,30 @@ st.markdown('<h1 class="main-header">⚡ QuantumRetail Demand Forecaster</h1>', 
 st.markdown('<p class="sub-header">Advanced Machine Learning Pipeline for Intelligent Retail Demand Prediction</p>', unsafe_allow_html=True)
 st.markdown("---")
 
-@st.cache_data
+@st.cache_data(ttl=3600, max_entries=1)
 def load_data():
-    """Load and cache processed data"""
+    """Load and cache processed data with memory limits"""
     with st.spinner("🔄 Loading data from HuggingFace Hub..."):
-        return get_processed_data()
+        df = get_processed_data()
+        # Optimize memory by converting to appropriate dtypes
+        df['store_id'] = df['store_id'].astype('int32')
+        df['product_id'] = df['product_id'].astype('int32')
+        df['sale_amount'] = df['sale_amount'].astype('float32')
+        if 'discount' in df.columns:
+            df['discount'] = df['discount'].astype('float32')
+        return df
 
-# Load data
-df = load_data()
+# Initialize session state for data
+if 'data_loaded' not in st.session_state:
+    st.session_state.data_loaded = False
+    st.session_state.df = None
+
+# Load data only once per session
+if not st.session_state.data_loaded:
+    st.session_state.df = load_data()
+    st.session_state.data_loaded = True
+
+df = st.session_state.df
 
 # Sidebar Configuration
 st.sidebar.image("https://img.icons8.com/clouds/200/000000/artificial-intelligence.png", width=150)
@@ -166,6 +185,9 @@ if run_forecast:
         progress_bar.progress(70)
         save_model(best_model, store_id, product_id, train_days)
         status_text.text("✅ Model trained successfully!")
+        # Clean up training data from memory
+        del train
+        gc.collect()
     
     progress_bar.progress(100)
     status_text.empty()
@@ -235,6 +257,7 @@ if run_forecast:
         
         plt.tight_layout()
         st.pyplot(fig)
+        plt.close(fig)  # Free memory
     
     with tab2:
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
@@ -256,6 +279,7 @@ if run_forecast:
         
         plt.tight_layout()
         st.pyplot(fig)
+        plt.close(fig)  # Free memory
     
     with tab3:
         # Create comparison dataframe
@@ -330,9 +354,9 @@ else:
     with overview_col3:
         st.metric("📅 Total Records", len(df))
     
-    # Sample data
+    # Sample data (limit to reduce memory)
     st.markdown("### 🔍 Sample Data")
-    st.dataframe(df.head(10), use_container_width=True)
+    st.dataframe(df.head(10), use_container_width=True, height=300)
 
 # Footer
 st.markdown("---")

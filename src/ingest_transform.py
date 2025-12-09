@@ -8,10 +8,17 @@ RAW_DATA_PATH = os.path.join(ROOT_DIR, "data", "raw", "train.parquet")
 PROCESSED_DATA_PATH = os.path.join(ROOT_DIR, "data", "processed", "train_processed.parquet")
 
 def load_raw_data(path: str = RAW_DATA_PATH) -> pd.DataFrame:
-    """Load raw parquet file."""
-
-    #We will work on train split
-    return pd.read_parquet("hf://datasets/Dingdong-Inc/FreshRetailNet-50K/data/train.parquet")
+    """Load raw parquet file with memory optimization."""
+    # We will work on train split
+    df = pd.read_parquet("hf://datasets/Dingdong-Inc/FreshRetailNet-50K/data/train.parquet")
+    
+    # Optimize dtypes to reduce memory footprint
+    for col in df.select_dtypes(include=['int64']).columns:
+        df[col] = df[col].astype('int32')
+    for col in df.select_dtypes(include=['float64']).columns:
+        df[col] = df[col].astype('float32')
+    
+    return df
 
 
 def transform_data(df: pd.DataFrame) -> pd.DataFrame:

@@ -9,3 +9,12 @@ font = "sans serif"
 headless = true
 enableCORS = false
 port = 8501
+maxUploadSize = 200
+runOnSave = false
+
+[browser]
+gatherUsageStats = false
+
+[runner]
+magicEnabled = false
+fastReruns = true

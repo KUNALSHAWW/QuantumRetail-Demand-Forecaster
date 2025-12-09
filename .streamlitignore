@@ -1,0 +1,26 @@
+# Ignore data files to save memory
+data/raw/
+*.parquet
+*.csv
+
+# Ignore model checkpoints
+models/
+*.pkl
+*.joblib
+
+# Ignore notebooks
+notebook/
+*.ipynb
+
+# Ignore cache
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Ignore git
+.git/
+.gitignore
+
+# Ignore documentation
+*.md
+assets/
