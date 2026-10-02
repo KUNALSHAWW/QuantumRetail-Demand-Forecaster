@@ -17,7 +17,7 @@ def test_app_renders_without_errors():
 
     at = AppTest.from_file(str(APP), default_timeout=120).run()
     assert not at.exception, [e.value for e in at.exception]
-    assert at.title[0].value.startswith("Demand outlook")
+    assert any("Demand outlook" in m.value for m in at.markdown)
     assert len(at.tabs) == 5
     assert len(at.metric) == 4
 
