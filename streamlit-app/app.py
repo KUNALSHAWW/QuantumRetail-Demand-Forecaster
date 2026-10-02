@@ -1,368 +1,220 @@
-import streamlit as st
-import matplotlib
-matplotlib.use('Agg')  # Use non-interactive backend to save memory
-import matplotlib.pyplot as plt
-import pandas as pd
+"""QuantumRetail dashboard: probabilistic demand forecasts and inventory decisions.
+
+Run from the repository root:  streamlit run streamlit-app/app.py
+"""
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
 import numpy as np
-from datetime import datetime
-import sys, os
-import gc  # Garbage collector for memory management
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from src.ingest_transform import get_processed_data
-from src.model_selection import time_series_split, train_and_select_model
-from src.model_selection import save_model, load_model
+import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
 
-# Page configuration
-st.set_page_config(
-    page_title="QuantumRetail Demand Forecaster",
-    page_icon="⚡",
-    layout="wide",
-    initial_sidebar_state="expanded"
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+from quantumretail.bundle import load_panel  # noqa: E402
+from quantumretail.inventory import quantile_from_knots  # noqa: E402
+from quantumretail.service import DemandService  # noqa: E402
+
+MODELS = ROOT / "models" / "qr_v2"
+PANEL = ROOT / "data" / "demo" / "demo_panel.npz"
+BENCH = ROOT / "benchmarks" / "results" / "forecast_benchmark.json"
+
+st.set_page_config(page_title="QuantumRetail", page_icon="📦", layout="wide")
+
+
+@st.cache_resource(show_spinner="Loading model and demo data...")
+def get_service() -> DemandService:
+    return DemandService(MODELS, load_panel(PANEL))
+
+
+if not (MODELS / "meta.json").exists() or not PANEL.exists():
+    st.error("Demo artefacts not found. Run `python -m quantumretail build-demo` first.")
+    st.stop()
+
+svc = get_service()
+panel = svc.panel
+
+# ------------------------------------------------------------------ sidebar
+st.sidebar.title("QuantumRetail")
+st.sidebar.caption("Stockout-aware probabilistic demand forecasting")
+ids = [svc.label(i) for i in range(panel.n_series)]
+choice = st.sidebar.selectbox("Store / product", range(panel.n_series), format_func=lambda i: ids[i])
+
+origins = list(range(svc.max_origin, svc.max_origin - 8, -1))
+origin = st.sidebar.selectbox(
+    "Forecast made at the end of",
+    origins,
+    format_func=lambda o: str(panel.dates[o]) + ("  (latest)" if o == svc.max_origin else "  (backtest)"),
 )
 
-# Custom CSS for better aesthetics
-st.markdown("""
-<style>
-    .main-header {
-        font-size: 3rem;
-        font-weight: 700;
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        text-align: center;
-        padding: 1rem 0;
-    }
-    .sub-header {
-        text-align: center;
-        color: #666;
-        font-size: 1.2rem;
-        margin-bottom: 2rem;
-    }
-    .metric-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1rem;
-        border-radius: 10px;
-        color: white;
-        text-align: center;
-    }
-    .stButton>button {
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        border-radius: 5px;
-        padding: 0.5rem 2rem;
-        font-weight: 600;
-        width: 100%;
-    }
-    .stButton>button:hover {
-        background: linear-gradient(90deg, #764ba2 0%, #667eea 100%);
-    }
-    .info-box {
-        background-color: #f0f2f6;
-        padding: 1rem;
-        border-radius: 10px;
-        border-left: 4px solid #667eea;
-    }
-</style>
-""", unsafe_allow_html=True)
+st.sidebar.subheader("Inventory economics")
+underage = st.sidebar.slider("Cost of a lost sale (per unit)", 0.5, 10.0, 3.0, 0.5)
+overage = st.sidebar.slider("Cost of waste (per unit)", 0.5, 10.0, 1.0, 0.5)
 
-# Header
-st.markdown('<h1 class="main-header">⚡ QuantumRetail Demand Forecaster</h1>', unsafe_allow_html=True)
-st.markdown('<p class="sub-header">Advanced Machine Learning Pipeline for Intelligent Retail Demand Prediction</p>', unsafe_allow_html=True)
-st.markdown("---")
+st.sidebar.subheader("What-if promotion")
+promo = st.sidebar.checkbox("Run a promotion over the next 7 days")
+price_factor = st.sidebar.slider("Price factor (1.0 = no discount)", 0.60, 1.10, 0.85, 0.01, disabled=not promo)
 
-@st.cache_data(ttl=3600, max_entries=1)
-def load_data():
-    """Load and cache processed data with memory limits"""
-    with st.spinner("🔄 Loading data from HuggingFace Hub..."):
-        df = get_processed_data()
-        # Optimize memory by converting to appropriate dtypes
-        df['store_id'] = df['store_id'].astype('int32')
-        df['product_id'] = df['product_id'].astype('int32')
-        df['sale_amount'] = df['sale_amount'].astype('float32')
-        if 'discount' in df.columns:
-            df['discount'] = df['discount'].astype('float32')
-        return df
+overrides = {"discount": [price_factor] * 7, "activity_flag": [1] * 7} if promo else None
+base_fc = svc.forecast(choice, origin)
+fc = svc.forecast(choice, origin, overrides) if promo else base_fc
+plan = svc.order_plan(fc, underage, overage)
+hist = svc.history(choice)
 
-# Initialize session state for data
-if 'data_loaded' not in st.session_state:
-    st.session_state.data_loaded = False
-    st.session_state.df = None
+st.title(f"Demand outlook: {svc.label(choice)}")
+c1, c2, c3, c4 = st.columns(4)
+c1.metric(
+    "7-day forecast (units)",
+    f"{fc['point'].sum():.1f}",
+    f"{fc['point'].sum() - base_fc['point'].sum():+.1f} vs no promo" if promo else None,
+)
+c2.metric("80% range", f"{fc['lo80'].sum():.1f} to {fc['hi80'].sum():.1f}", help="Sum of daily interval ends; conservative.")
+c3.metric(
+    "Order plan (units)",
+    f"{plan.frame['order_qty'].sum():.1f}",
+    help=f"Newsvendor order at the {plan.critical_fractile:.0%} critical fractile",
+)
+c4.metric("Days with a stockout (last 28)", int((hist["stockout_hours"].iloc[: origin + 1].tail(28) > 0).sum()))
 
-# Load data only once per session
-if not st.session_state.data_loaded:
-    st.session_state.df = load_data()
-    st.session_state.data_loaded = True
-
-df = st.session_state.df
-
-# Sidebar Configuration
-st.sidebar.image("https://img.icons8.com/clouds/200/000000/artificial-intelligence.png", width=150)
-st.sidebar.markdown("## 🎛️ Configuration Panel")
-st.sidebar.markdown("---")
-
-# Store selection with search
-st.sidebar.markdown("### 🏪 Store Selection")
-store_ids = df["store_id"].unique().tolist()
-store_id = st.sidebar.selectbox(
-    "Choose Store ID",
-    sorted(store_ids),
-    help="Select the retail store for analysis"
+tab_f, tab_i, tab_w, tab_s, tab_m = st.tabs(
+    ["Forecast", "Inventory plan", "Why this forecast", "Stockouts and recovery", "Model card"]
 )
 
-# Product selection (filtered by store)
-st.sidebar.markdown("### 📦 Product Selection")
-products = df[df["store_id"] == store_id]["product_id"].unique().tolist()
-product_id = st.sidebar.selectbox(
-    "Choose Product SKU",
-    sorted(products),
-    help="Select the product for demand forecasting"
-)
+# ------------------------------------------------------------------ forecast
+with tab_f:
+    h = hist.iloc[: origin + 1].tail(42)
+    fig = go.Figure()
+    fig.add_bar(x=h["date"], y=h["recovered_demand"], name="Recovered demand", marker_color="rgba(99,102,241,0.35)")
+    fig.add_scatter(
+        x=h["date"], y=h["observed_sales"], name="Observed sales", mode="lines+markers", line=dict(color="#111827", width=2)
+    )
+    for lo, hi, name, alpha in (("lo90", "hi90", "90% interval", 0.12), ("lo80", "hi80", "80% interval", 0.25)):
+        fig.add_scatter(
+            x=pd.concat([fc["date"], fc["date"][::-1]]),
+            y=pd.concat([fc[hi], fc[lo][::-1]]),
+            fill="toself",
+            fillcolor=f"rgba(236,72,153,{alpha})",
+            line=dict(width=0),
+            name=name,
+        )
+    fig.add_scatter(x=fc["date"], y=fc["point"], name="Forecast", line=dict(color="#ec4899", width=3))
+    actual = fc[fc["observed_sales"].notna()]
+    fig.add_scatter(
+        x=actual["date"], y=actual["observed_sales"], mode="markers", name="Actual sales",
+        marker=dict(color="#111827", size=9, symbol="diamond"),
+    )
+    fig.update_layout(height=430, margin=dict(l=10, r=10, t=10, b=10), legend=dict(orientation="h"), yaxis_title="units per day")
+    st.plotly_chart(fig, use_container_width=True)
+    st.caption(
+        "Bars show demand reconstructed for hours when the shelf was empty; the line shows what was actually "
+        "sold. Intervals are conformally calibrated, so an 80% band is meant to contain about 80% of outcomes."
+    )
+    show = fc[["date", "point", "lo80", "hi80", "observed_sales", "stockout_hours"]].copy()
+    show["date"] = show["date"].dt.strftime("%a %d %b")
+    st.dataframe(show.round(2).rename(columns={"point": "forecast", "observed_sales": "actual sales"}), hide_index=True, use_container_width=True)
 
-# Get max available days
-max_days = len(df[(df["store_id"] == store_id) & (df["product_id"]==product_id)])
+# ------------------------------------------------------------------ inventory
+with tab_i:
+    st.subheader("How much should the store stock each day?")
+    st.write(
+        f"With a lost sale costing {underage:g} and a wasted unit costing {overage:g}, the cost-minimising "
+        f"order is the **{plan.critical_fractile:.0%} quantile** of demand (the newsvendor critical fractile)."
+    )
+    pf = plan.frame.copy()
+    pf["date"] = pf["date"].dt.strftime("%a %d %b")
+    st.dataframe(
+        pf.round(2).rename(
+            columns={
+                "order_qty": "order",
+                "expected_demand": "expected demand",
+                "expected_waste_units": "expected waste",
+                "expected_unmet_units": "expected unmet demand",
+                "expected_fill_rate": "expected fill rate",
+                "expected_cost": "expected cost",
+            }
+        ),
+        hide_index=True,
+        use_container_width=True,
+    )
+    taus = svc.taus
+    knots = fc[[f"q{int(round(t * 100)):02d}" for t in taus]].to_numpy()
+    grid = np.stack([quantile_from_knots(taus, knots, g) for g in np.linspace(taus[0], taus[-1], 61)], axis=1)
+    rows = []
+    for lv in np.linspace(0.5, 0.95, 10):
+        q = quantile_from_knots(taus, knots, lv)
+        short = np.maximum(grid - q[:, None], 0).mean(1).sum()
+        over = np.maximum(q[:, None] - grid, 0).mean(1).sum()
+        rows.append({"service level": lv, "expected waste": over, "expected fill rate": 1 - short / grid.mean(1).sum()})
+    curve = pd.DataFrame(rows)
+    f2 = go.Figure()
+    f2.add_scatter(
+        x=curve["expected waste"], y=curve["expected fill rate"], mode="lines+markers",
+        text=[f"{v:.0%}" for v in curve["service level"]], name="order policy",
+    )
+    f2.update_layout(height=320, xaxis_title="expected waste (units, 7 days)", yaxis_title="expected fill rate", margin=dict(l=10, r=10, t=10, b=10))
+    st.plotly_chart(f2, use_container_width=True)
+    st.caption("Each point is one service-level target. Moving right buys fill rate with extra waste.")
 
-# Training & forecast windows
-st.sidebar.markdown("### 📊 Model Configuration")
-train_days = st.sidebar.slider(
-    "Training Window (days)",
-    min_value=10,
-    max_value=max_days,
-    value=min(60, max_days),
-    step=1,
-    help="Number of days to use for model training"
-)
+# ------------------------------------------------------------------ explain
+with tab_w:
+    day = st.slider("Explain forecast for day", 1, 7, 1)
+    exp = svc.explain(choice, day, origin, top=10)
+    base = exp.attrs["base_value"]
+    colors = ["#10b981" if v > 0 else "#ef4444" for v in exp["contribution"]]
+    f3 = go.Figure(go.Bar(x=exp["contribution"][::-1], y=exp["feature"][::-1], orientation="h", marker_color=colors[::-1]))
+    f3.update_layout(height=380, margin=dict(l=10, r=10, t=10, b=10), xaxis_title="effect on forecast (units)")
+    st.plotly_chart(f3, use_container_width=True)
+    st.caption(f"Exact tree-SHAP contributions to the point forecast, relative to a baseline of {base:.2f} units.")
+    st.dataframe(exp.round(3), hide_index=True, use_container_width=True)
 
-# Advanced options
-with st.sidebar.expander("🔬 Advanced Options"):
-    show_metrics = st.checkbox("Show Detailed Metrics", value=True)
-    show_features = st.checkbox("Show Feature Importance", value=False)
-    confidence_interval = st.slider("Confidence Interval (%)", 80, 99, 95)
+# ------------------------------------------------------------------ recovery
+with tab_s:
+    st.subheader("Stockout-aware demand recovery")
+    days = list(range(max(0, origin - 13), origin + 1))
+    heat = panel.stock[choice, days].astype(float)
+    f4 = go.Figure(
+        go.Heatmap(
+            z=heat, x=list(range(24)), y=[str(panel.dates[d]) for d in days],
+            colorscale=[[0, "#e0e7ff"], [1, "#4338ca"]], showscale=False,
+        )
+    )
+    f4.update_layout(height=380, margin=dict(l=10, r=10, t=30, b=10), xaxis_title="hour of day", title="Dark = out of stock")
+    st.plotly_chart(f4, use_container_width=True)
+    understate = 1 - hist["observed_sales"].sum() / max(hist["recovered_demand"].sum(), 1e-9)
+    st.write(
+        f"For this series, raw sales miss an estimated **{understate:.0%}** of demand because of stockouts. "
+        "Training on raw sales would teach a model to under-forecast exactly the products that sell out."
+    )
+    prof = svc.profile.rows_for(panel.static["product_id"][[choice]])[0]
+    f5 = go.Figure(go.Bar(x=list(range(24)), y=prof, marker_color="#6366f1"))
+    f5.update_layout(height=260, margin=dict(l=10, r=10, t=30, b=10), title="Typical share of daily demand by hour", xaxis_title="hour of day")
+    st.plotly_chart(f5, use_container_width=True)
 
-
-st.sidebar.markdown("---")
-run_forecast = st.sidebar.button("🚀 Run Forecast", use_container_width=True)
-
-# Main content area
-if run_forecast:
-    # Create columns for overview metrics
-    col1, col2, col3, col4 = st.columns(4)
-    
-    df_subset = df[(df["store_id"] == store_id) & (df["product_id"] == product_id)]
-    df_subset = df_subset.sort_values("dt").reset_index(drop=True)
-    
-    with col1:
-        st.metric("📅 Total Days", len(df_subset))
-    with col2:
-        st.metric("📊 Training Days", train_days)
-    with col3:
-        st.metric("🔮 Validation Days", len(df_subset) - train_days + 7)
-    with col4:
-        avg_sales = df_subset["sale_amount"].mean()
-        st.metric("💰 Avg Sales", f"{avg_sales:.2f}")
-    
-    st.markdown("---")
-    
-    # Progress indicator
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-    
-    # 🔍 Try loading cached model
-    status_text.text("🔍 Checking for cached model...")
-    progress_bar.progress(20)
-    best_model = load_model(store_id, product_id, train_days)
-    
-    if best_model:
-        status_text.text("✅ Loaded cached model!")
-        progress_bar.progress(50)
-        results = {"cached_model": {"rmse": "N/A", "mae": "N/A"}}
-        train, val = time_series_split(df_subset, train_days-7)
-    else:
-        status_text.text("⚡ Training new model...")
-        progress_bar.progress(30)
-        train, val = time_series_split(df_subset, train_days-7)
-        best_model, results = train_and_select_model(train, val)
-        progress_bar.progress(70)
-        save_model(best_model, store_id, product_id, train_days)
-        status_text.text("✅ Model trained successfully!")
-        # Clean up training data from memory
-        del train
-        gc.collect()
-    
-    progress_bar.progress(100)
-    status_text.empty()
-    progress_bar.empty()
-    
-    # Model Information
-    st.markdown("## 🧠 Model Performance")
-    
-    if results and results != {"cached_model": {"rmse": "N/A", "mae": "N/A"}}:
-        best_model_name = min(results, key=lambda k: results[k]['rmse'])
-        best_model_metrics = results[best_model_name]
-        
-        # Display metrics in attractive cards
-        metric_cols = st.columns(len(results) + 1)
-        
-        with metric_cols[0]:
-            st.markdown(f"""
-            <div class="metric-card">
-                <h3>🏆 Best Model</h3>
-                <h2>{best_model_name}</h2>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        for idx, (model_name, metrics) in enumerate(results.items(), 1):
-            with metric_cols[idx]:
-                st.markdown(f"""
-                <div class="info-box">
-                    <h4>{model_name}</h4>
-                    <p><b>RMSE:</b> {metrics['rmse']:.4f}</p>
-                    <p><b>MAE:</b> {metrics['mae']:.4f}</p>
-                </div>
-                """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # Generate predictions
-    X_val = val.drop(columns=["sale_amount", "dt"])
-    y_val = val["sale_amount"]
-    preds = best_model.predict(X_val)
-    
-    # Calculate residuals
-    residuals = y_val - preds
-    
-    # Visualization Section
-    st.markdown("## 📈 Forecast Visualization")
-    
-    # Create tabs for different views
-    tab1, tab2, tab3 = st.tabs(["📊 Forecast Plot", "📉 Residual Analysis", "📋 Data Table"])
-    
-    with tab1:
-        fig, ax = plt.subplots(figsize=(14, 6))
-        
-        # Plot actual vs predicted
-        ax.plot(val["dt"], y_val, label="Actual Sales", marker="o", linewidth=2, markersize=6, color="#667eea")
-        ax.plot(val["dt"], preds, label="Predicted Sales", marker="x", linewidth=2, markersize=6, color="#f093fb")
-        
-        # Add confidence band (simple std-based approximation)
-        std_error = np.std(residuals)
-        ax.fill_between(val["dt"], preds - std_error, preds + std_error, alpha=0.2, color="#f093fb", label="Confidence Band")
-        
-        ax.set_title(f"Demand Forecast: Store {store_id} - Product {product_id}", fontsize=16, fontweight='bold')
-        ax.set_xlabel("Date", fontsize=12)
-        ax.set_ylabel("Sales Amount", fontsize=12)
-        ax.tick_params(axis='x', rotation=45)
-        ax.legend(fontsize=10)
-        ax.grid(True, alpha=0.3, linestyle='--')
-        
-        plt.tight_layout()
-        st.pyplot(fig)
-        plt.close(fig)  # Free memory
-    
-    with tab2:
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
-        
-        # Residual plot
-        ax1.scatter(preds, residuals, alpha=0.6, color="#667eea")
-        ax1.axhline(y=0, color='red', linestyle='--', linewidth=2)
-        ax1.set_xlabel("Predicted Values", fontsize=12)
-        ax1.set_ylabel("Residuals", fontsize=12)
-        ax1.set_title("Residual Plot", fontsize=14, fontweight='bold')
-        ax1.grid(True, alpha=0.3)
-        
-        # Residual distribution
-        ax2.hist(residuals, bins=20, color="#764ba2", alpha=0.7, edgecolor='black')
-        ax2.set_xlabel("Residual Value", fontsize=12)
-        ax2.set_ylabel("Frequency", fontsize=12)
-        ax2.set_title("Residual Distribution", fontsize=14, fontweight='bold')
-        ax2.grid(True, alpha=0.3, axis='y')
-        
-        plt.tight_layout()
-        st.pyplot(fig)
-        plt.close(fig)  # Free memory
-    
-    with tab3:
-        # Create comparison dataframe
-        comparison_df = pd.DataFrame({
-            "Date": val["dt"],
-            "Actual Sales": y_val.values,
-            "Predicted Sales": preds,
-            "Error": residuals.values,
-            "Error %": (residuals.values / y_val.values * 100)
-        })
-        
+# ------------------------------------------------------------------ model card
+with tab_m:
+    st.subheader("Evidence")
+    if BENCH.exists():
+        res = json.loads(BENCH.read_text())
+        st.caption(f"Series split: {res['split']}. Test series were never seen in training or calibration.")
+        rows = []
+        for name, m in res["point_forecasts"].items():
+            f = m["stockout_free_days_vs_true_demand"]
+            rows.append({"model": name, "WAPE": f["wape"], "bias (WPE)": f["wpe"], "MAE": f["mae"]})
+        st.markdown("**Point forecast accuracy on stockout-free test days** (observed sales equal true demand)")
+        st.dataframe(pd.DataFrame(rows).round(4), hide_index=True, use_container_width=True)
+        st.markdown("**Interval calibration**")
+        st.json(res["probabilistic_forecasts"]["80pct_interval"])
+        rv = res["recovery_validation"]
+        st.markdown("**Demand-recovery validation** (controlled censoring of fully stocked days)")
         st.dataframe(
-            comparison_df.style.background_gradient(cmap="RdYlGn_r", subset=["Error %"]),
-            use_container_width=True
+            pd.DataFrame({k: rv[k] for k in ("none", "legacy", rv["best_profile_setting"])}).T.round(4),
+            use_container_width=True,
         )
-        
-        # Download button
-        csv = comparison_df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="📥 Download Forecast Data",
-            data=csv,
-            file_name=f"forecast_{store_id}_{product_id}_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv",
-        )
-    
-    # Additional metrics section
-    if show_metrics:
-        st.markdown("---")
-        st.markdown("## 📊 Detailed Performance Metrics")
-        
-        from sklearn.metrics import r2_score, mean_absolute_percentage_error
-        
-        r2 = r2_score(y_val, preds)
-        mape = mean_absolute_percentage_error(y_val, preds) * 100
-        
-        metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
-        
-        with metric_col1:
-            st.metric("R² Score", f"{r2:.4f}")
-        with metric_col2:
-            st.metric("MAPE", f"{mape:.2f}%")
-        with metric_col3:
-            st.metric("Max Error", f"{abs(residuals).max():.2f}")
-        with metric_col4:
-            st.metric("Std Error", f"{std_error:.2f}")
-
-else:
-    # Welcome screen
-    st.markdown("""
-    <div class="info-box">
-        <h2>👋 Welcome to QuantumRetail Demand Forecaster</h2>
-        <p>This advanced machine learning platform enables intelligent retail demand prediction with:</p>
-        <ul>
-            <li>🎯 <b>Latent Demand Recovery</b>: Account for sales lost during stockouts</li>
-            <li>🤖 <b>Automated Model Selection</b>: LightGBM & XGBoost ensemble</li>
-            <li>📊 <b>Interactive Visualizations</b>: Real-time forecast analysis</li>
-            <li>⚡ <b>Intelligent Caching</b>: Fast predictions with model persistence</li>
-        </ul>
-        <p><b>To get started:</b> Configure your parameters in the sidebar and click "Run Forecast"</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Dataset overview
-    st.markdown("### 📊 Dataset Overview")
-    
-    overview_col1, overview_col2, overview_col3 = st.columns(3)
-    
-    with overview_col1:
-        st.metric("🏪 Total Stores", df["store_id"].nunique())
-    with overview_col2:
-        st.metric("📦 Total Products", df["product_id"].nunique())
-    with overview_col3:
-        st.metric("📅 Total Records", len(df))
-    
-    # Sample data (limit to reduce memory)
-    st.markdown("### 🔍 Sample Data")
-    st.dataframe(df.head(10), use_container_width=True, height=300)
-
-# Footer
-st.markdown("---")
-st.markdown("""
-<div style="text-align: center; color: #666; padding: 1rem;">
-    <p>⚡ <b>QuantumRetail Demand Forecaster</b> | Built with Python, Streamlit & Machine Learning</p>
-    <p>Developed by <a href="https://github.com/KUNALSHAWW" target="_blank">KUNALSHAWW</a> | Machine Learning Engineer</p>
-</div>
-""", unsafe_allow_html=True)
+    else:
+        st.info("Run `python -m quantumretail benchmark` to generate benchmarks/results/forecast_benchmark.json.")
+    st.caption("Dataset: FreshRetailNet-50K (Dingdong-Inc), 50,000 store-product series, hourly sales and stockout flags.")
