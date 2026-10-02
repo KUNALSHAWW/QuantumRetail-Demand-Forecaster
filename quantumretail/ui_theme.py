@@ -22,7 +22,7 @@ _CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root{--bg:%(bg)s;--s1:%(s1)s;--s2:%(s2)s;--s3:%(s3)s;--b1:rgba(255,255,255,.07);--b2:rgba(255,255,255,.13);
 --t1:%(t1)s;--t2:%(t2)s;--t3:%(t3)s;--acc:%(acc)s;--ok:%(ok)s;--warn:%(warn)s;--bad:%(bad)s;}
-html,body,.stApp,[class*="st-"]{font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;}
+html,body,.stApp,.stApp div,.stApp p,.stApp label,.stApp h1,.stApp h2,.stApp h3,.stApp h4,.stApp li,.stApp button,.stApp input,.stApp textarea,.stApp a,.stApp td,.stApp th,.stApp [data-baseweb]{font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;}
 .stApp{background:var(--bg);color:var(--t1);
 background-image:radial-gradient(900px 420px at 12%% -8%%,color-mix(in srgb,var(--acc) 16%%,transparent),transparent 65%%),
 radial-gradient(700px 360px at 95%% 0%%,rgba(255,255,255,.03),transparent 70%%);background-repeat:no-repeat;}
