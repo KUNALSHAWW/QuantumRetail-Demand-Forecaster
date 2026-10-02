@@ -17,6 +17,8 @@ Stockout-aware probabilistic demand forecasting with calibrated prediction inter
 
 </div>
 
+<p align="center"><img src="docs/screenshots/forecast.png" alt="QuantumRetail dashboard: 7-day probabilistic forecast with calibrated intervals" width="900"></p>
+
 ---
 
 ## The problem
@@ -98,6 +100,18 @@ make demo         # rebuilds the compact demo model
 - **Stockouts and recovery**: an hour-by-hour stockout heatmap and the product's demand profile.
 - **Model card**: the benchmark evidence, from the JSON files.
 
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/inventory.png" alt="Inventory plan"><br><sub>Inventory plan: cost-optimal order per day</sub></td>
+<td width="50%"><img src="docs/screenshots/explain.png" alt="SHAP explanation"><br><sub>Why this forecast: exact SHAP contributions</sub></td>
+</tr>
+<tr>
+<td colspan="2"><img src="docs/screenshots/recovery.png" alt="Stockout heatmap"><br><sub>Stockouts and recovery: hour-by-hour out-of-stock map</sub></td>
+</tr>
+</table>
+
+The interface uses a near-black canvas with layered graphite surfaces and a single sky-blue accent, in the style of modern developer tools (see [Design notes](#design-notes)). Screenshots are taken from the running app on the committed demo model.
+
 ## How it works
 
 ```
@@ -144,6 +158,10 @@ models/qr_v2/       compact demo model (about 8 MB)
 data/demo/          400 held-out series for the demo (about 0.5 MB)
 notebook/           the original exploratory analysis
 ```
+
+## Design notes
+
+The dashboard follows the conventions of products such as Linear, Vercel and PostHog: a dark-first palette (`#08090A` canvas, graphite surfaces, hairline borders), Inter for text and JetBrains Mono for code, tabular numerals for metrics, and one saturated accent used sparingly so the charts stay legible. The theme lives in [quantumretail/ui_theme.py](quantumretail/ui_theme.py) and is applied to Plotly charts through a shared figure style.
 
 ## Tests
 

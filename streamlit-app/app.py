@@ -16,6 +16,7 @@ import streamlit as st
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from quantumretail import ui_theme as ui  # noqa: E402
 from quantumretail.bundle import load_panel  # noqa: E402
 from quantumretail.inventory import quantile_from_knots  # noqa: E402
 from quantumretail.service import DemandService  # noqa: E402
@@ -24,7 +25,8 @@ MODELS = ROOT / "models" / "qr_v2"
 PANEL = ROOT / "data" / "demo" / "demo_panel.npz"
 BENCH = ROOT / "benchmarks" / "results" / "forecast_benchmark.json"
 
-st.set_page_config(page_title="QuantumRetail", page_icon="📦", layout="wide")
+ACCENT = "#38BDF8"
+ui.apply(ACCENT, "QuantumRetail", "◆")
 
 
 @st.cache_resource(show_spinner="Loading model and demo data...")
@@ -40,7 +42,7 @@ svc = get_service()
 panel = svc.panel
 
 # ------------------------------------------------------------------ sidebar
-st.sidebar.title("QuantumRetail")
+st.sidebar.markdown("### QuantumRetail")
 st.sidebar.caption("Stockout-aware probabilistic demand forecasting")
 ids = [svc.label(i) for i in range(panel.n_series)]
 choice = st.sidebar.selectbox("Store / product", range(panel.n_series), format_func=lambda i: ids[i])
@@ -66,7 +68,14 @@ fc = svc.forecast(choice, origin, overrides) if promo else base_fc
 plan = svc.order_plan(fc, underage, overage)
 hist = svc.history(choice)
 
-st.title(f"Demand outlook: {svc.label(choice)}")
+ui.hero(
+    "Demand intelligence",
+    f"Demand outlook: {svc.label(choice)}",
+    "Probabilistic 7-day forecasts trained on demand recovered from stockout hours, with calibrated intervals "
+    "and a cost-optimal order plan.",
+    [("Conformal intervals", "accent"), ("Newsvendor orders", "ok"), ("Exact SHAP", "neutral"),
+     ("Promotion what-if", "warn") if promo else ("Stockout-aware", "neutral")],
+)
 c1, c2, c3, c4 = st.columns(4)
 c1.metric(
     "7-day forecast (units)",
@@ -79,7 +88,7 @@ c3.metric(
     f"{plan.frame['order_qty'].sum():.1f}",
     help=f"Newsvendor order at the {plan.critical_fractile:.0%} critical fractile",
 )
-c4.metric("Days with a stockout (last 28)", int((hist["stockout_hours"].iloc[: origin + 1].tail(28) > 0).sum()))
+c4.metric("Stockout days (28d)", int((hist["stockout_hours"].iloc[: origin + 1].tail(28) > 0).sum()))
 
 tab_f, tab_i, tab_w, tab_s, tab_m = st.tabs(
     ["Forecast", "Inventory plan", "Why this forecast", "Stockouts and recovery", "Model card"]
@@ -89,26 +98,27 @@ tab_f, tab_i, tab_w, tab_s, tab_m = st.tabs(
 with tab_f:
     h = hist.iloc[: origin + 1].tail(42)
     fig = go.Figure()
-    fig.add_bar(x=h["date"], y=h["recovered_demand"], name="Recovered demand", marker_color="rgba(99,102,241,0.35)")
+    fig.add_bar(x=h["date"], y=h["recovered_demand"], name="Recovered demand", marker_color="rgba(56,189,248,0.30)")
     fig.add_scatter(
-        x=h["date"], y=h["observed_sales"], name="Observed sales", mode="lines+markers", line=dict(color="#111827", width=2)
+        x=h["date"], y=h["observed_sales"], name="Observed sales", mode="lines+markers", line=dict(color="#EDEEF0", width=1.6), marker=dict(size=5)
     )
     for lo, hi, name, alpha in (("lo90", "hi90", "90% interval", 0.12), ("lo80", "hi80", "80% interval", 0.25)):
         fig.add_scatter(
             x=pd.concat([fc["date"], fc["date"][::-1]]),
             y=pd.concat([fc[hi], fc[lo][::-1]]),
             fill="toself",
-            fillcolor=f"rgba(236,72,153,{alpha})",
+            mode="lines",
+            fillcolor=f"rgba(167,139,250,{alpha})",
             line=dict(width=0),
             name=name,
         )
-    fig.add_scatter(x=fc["date"], y=fc["point"], name="Forecast", line=dict(color="#ec4899", width=3))
+    fig.add_scatter(x=fc["date"], y=fc["point"], name="Forecast", line=dict(color="#A78BFA", width=3))
     actual = fc[fc["observed_sales"].notna()]
     fig.add_scatter(
         x=actual["date"], y=actual["observed_sales"], mode="markers", name="Actual sales",
-        marker=dict(color="#111827", size=9, symbol="diamond"),
+        marker=dict(color="#F5B93E", size=9, symbol="diamond", line=dict(color="#08090A", width=1)),
     )
-    fig.update_layout(height=430, margin=dict(l=10, r=10, t=10, b=10), legend=dict(orientation="h"), yaxis_title="units per day")
+    ui.style_fig(fig, ACCENT, 430).update_layout(yaxis_title="units per day")
     st.plotly_chart(fig, use_container_width=True)
     st.caption(
         "Bars show demand reconstructed for hours when the shelf was empty; the line shows what was actually "
@@ -156,7 +166,7 @@ with tab_i:
         x=curve["expected waste"], y=curve["expected fill rate"], mode="lines+markers",
         text=[f"{v:.0%}" for v in curve["service level"]], name="order policy",
     )
-    f2.update_layout(height=320, xaxis_title="expected waste (units, 7 days)", yaxis_title="expected fill rate", margin=dict(l=10, r=10, t=10, b=10))
+    ui.style_fig(f2, ACCENT, 320).update_layout(xaxis_title="expected waste (units, 7 days)", yaxis_title="expected fill rate")
     st.plotly_chart(f2, use_container_width=True)
     st.caption("Each point is one service-level target. Moving right buys fill rate with extra waste.")
 
@@ -165,9 +175,9 @@ with tab_w:
     day = st.slider("Explain forecast for day", 1, 7, 1)
     exp = svc.explain(choice, day, origin, top=10)
     base = exp.attrs["base_value"]
-    colors = ["#10b981" if v > 0 else "#ef4444" for v in exp["contribution"]]
+    colors = ["#3DD68C" if v > 0 else "#F2555A" for v in exp["contribution"]]
     f3 = go.Figure(go.Bar(x=exp["contribution"][::-1], y=exp["feature"][::-1], orientation="h", marker_color=colors[::-1]))
-    f3.update_layout(height=380, margin=dict(l=10, r=10, t=10, b=10), xaxis_title="effect on forecast (units)")
+    ui.style_fig(f3, ACCENT, 380).update_layout(xaxis_title="effect on forecast (units)")
     st.plotly_chart(f3, use_container_width=True)
     st.caption(f"Exact tree-SHAP contributions to the point forecast, relative to a baseline of {base:.2f} units.")
     st.dataframe(exp.round(3), hide_index=True, use_container_width=True)
@@ -180,10 +190,10 @@ with tab_s:
     f4 = go.Figure(
         go.Heatmap(
             z=heat, x=list(range(24)), y=[str(panel.dates[d]) for d in days],
-            colorscale=[[0, "#e0e7ff"], [1, "#4338ca"]], showscale=False,
+            colorscale=[[0, "#14161B"], [1, "#38BDF8"]], showscale=False, xgap=2, ygap=2,
         )
     )
-    f4.update_layout(height=380, margin=dict(l=10, r=10, t=30, b=10), xaxis_title="hour of day", title="Dark = out of stock")
+    ui.style_fig(f4, ACCENT, 380).update_layout(xaxis_title="hour of day", title="Bright cells = out of stock")
     st.plotly_chart(f4, use_container_width=True)
     understate = 1 - hist["observed_sales"].sum() / max(hist["recovered_demand"].sum(), 1e-9)
     st.write(
@@ -191,8 +201,8 @@ with tab_s:
         "Training on raw sales would teach a model to under-forecast exactly the products that sell out."
     )
     prof = svc.profile.rows_for(panel.static["product_id"][[choice]])[0]
-    f5 = go.Figure(go.Bar(x=list(range(24)), y=prof, marker_color="#6366f1"))
-    f5.update_layout(height=260, margin=dict(l=10, r=10, t=30, b=10), title="Typical share of daily demand by hour", xaxis_title="hour of day")
+    f5 = go.Figure(go.Bar(x=list(range(24)), y=prof, marker_color="#A78BFA"))
+    ui.style_fig(f5, ACCENT, 260).update_layout(title="Typical share of daily demand by hour", xaxis_title="hour of day")
     st.plotly_chart(f5, use_container_width=True)
 
 # ------------------------------------------------------------------ model card
