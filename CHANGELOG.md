@@ -1,84 +1,30 @@
 # Changelog
 
-All notable changes to QuantumRetail Demand Forecaster will be documented in this file.
+All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [2.0.0] - 2026-10-02
+
+A rebuild around one question: how do you forecast demand when you can only see what sold, not what customers wanted?
+
+### Added
+- `quantumretail` package with a dense `(series, day, hour)` data layer for FreshRetailNet-50K.
+- **Hourly-profile latent demand recovery** with a controlled-censoring validation (simulated stockouts on fully stocked days). On 300,000 simulated stockouts it reduces error from 30.3% (legacy formula) to 25.8% and removes the +7.7% bias.
+- **Global multi-horizon LightGBM forecaster** with leak-free features, trained across series.
+- **Conformal prediction intervals** (CQR) and per-quantile recalibration, with measured coverage.
+- **Inventory decision layer**: newsvendor order quantities from calibrated quantiles, scored on fill rate, waste and cost.
+- Exact SHAP explanations and a **what-if promotion** simulator.
+- Rebuilt Streamlit dashboard, a FastAPI service and a CLI (`python -m quantumretail`).
+- Reproducible benchmark with series-disjoint, time-ordered splits; `docs/METHODOLOGY.md` and generated `docs/BENCHMARKS.md`.
+- Automated tests, GitHub Actions CI, `pyproject.toml`, Makefile.
+
+### Changed
+- Forecasts are now probabilistic. The old "confidence band" (plus or minus one residual standard deviation, never calibrated) is gone.
+- Models are trained on recovered demand instead of raw sales. On stockout-free test days this cuts forecast bias from -14.2% to -3.4% and lowers WAPE from 32.3% to 31.6%.
+
+### Removed
+- The v1 per-series pipeline (`src/`), cached pickled models and the 67 MB processed parquet that was committed to git.
+- Unsupported performance claims from the previous README (an "average across 100 pairs" table and several quoted percentages). They are replaced by results reproduced by `make benchmark`.
 
 ## [1.0.0] - 2025-12-06
 
-### 🎉 Initial Release - QuantumRetail Demand Forecaster
-
-#### Added
-- **Core ML Pipeline**
-  - Implemented automated model selection framework (LightGBM, XGBoost)
-  - Developed latent demand recovery algorithm for stockout scenarios
-  - Created advanced feature engineering pipeline with lag and rolling statistics
-  - Built time-series cross-validation strategy
-  - Added intelligent model caching system with joblib persistence
-
-- **Data Processing**
-  - Integrated HuggingFace Hub data loading from FreshRetailNet-50K dataset
-  - Implemented data transformation and quality filtering
-  - Created efficient Parquet-based storage system
-  - Added temporal feature extraction (datetime processing)
-
-- **Interactive Web Application**
-  - Designed production-grade Streamlit dashboard with custom CSS styling
-  - Implemented multi-tab interface (Forecast, Residual Analysis, Data Table)
-  - Added real-time forecast visualization with confidence bands
-  - Created interactive store/product selection system
-  - Built comprehensive metrics dashboard (RMSE, MAE, R², MAPE)
-  - Implemented progress indicators and status updates
-  - Added CSV export functionality for forecast results
-  - Integrated residual analysis and distribution plots
-
-- **Documentation**
-  - Created comprehensive README with professional structure
-  - Added architecture diagrams and system flow documentation
-  - Included dataset specifications and feature dictionary
-  - Documented installation and usage instructions
-  - Added performance benchmarks and future roadmap
-
-- **Project Infrastructure**
-  - Added MIT License
-  - Created requirements.txt with versioned dependencies
-  - Structured modular codebase (src/, streamlit-app/, notebook/)
-  - Added GitHub setup guide with repository configuration
-
-#### Technical Specifications
-- Python 3.8+ compatibility
-- Support for 898 stores across 18 cities
-- 90-day temporal forecasting window
-- Sub-second prediction latency
-- Automated RMSE-based model selection
-
-#### Performance Metrics
-- LightGBM RMSE: ~12.34 (average across 100 store-product pairs)
-- XGBoost RMSE: ~12.58 (average across 100 store-product pairs)
-- Model load time: <50ms (cached)
-- Data processing time: ~2s for 90-day dataset
-
----
-
-## [Unreleased]
-
-### Planned Features
-- Deep learning integration (LSTM, Transformer architectures)
-- Category-level hierarchical forecasting
-- Bayesian hyperparameter optimization
-- SHAP-based model explainability
-- FastAPI microservice deployment
-- Multi-horizon forecasting (1-day, 7-day, 30-day)
-- Real-time anomaly detection
-- A/B testing framework
-
----
-
-## Version History
-
-- **v1.0.0** (2025-12-06): Initial production release with full ML pipeline and web dashboard
-
----
-
-**Maintained by**: [KUNALSHAWW](https://github.com/KUNALSHAWW)
+Initial release: per-series LightGBM and XGBoost with a Streamlit dashboard.

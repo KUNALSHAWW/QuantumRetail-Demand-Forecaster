@@ -1,0 +1,37 @@
+{
+ "weekend_vs_weekday": {
+  "lift": 0.33366423953791347,
+  "median_series_lift": 0.27882606122524844,
+  "series_used": 50000
+ },
+ "promotion_active_vs_not": {
+  "lift": 0.4005612866651216,
+  "median_series_lift": 0.40044512750088335,
+  "series_used": 38347
+ },
+ "holiday_vs_not": {
+  "lift": 0.3133435719245232,
+  "median_series_lift": 0.24369918609740537,
+  "series_used": 50000
+ },
+ "discount_elasticity": {
+  "pct_change_in_demand_per_1pct_price_cut": 1.6597117185592651,
+  "note": "series fixed-effects slope of log demand on log price factor, sign flipped so positive means demand rises when price falls"
+ },
+ "temperature_per_degree_c": {
+  "pct_change_in_demand": 0.011622962074518784
+ },
+ "precipitation_per_unit": {
+  "pct_change_in_demand": 0.012349066005786577
+ },
+ "promotion_active_vs_not_raw_sales": {
+  "lift": 0.32035169505947225,
+  "median_series_lift": 0.3363930040266476,
+  "series_used": 38347
+ },
+ "weekend_vs_weekday_raw_sales": {
+  "lift": 0.29133696812736387,
+  "median_series_lift": 0.24892216845906656,
+  "series_used": 50000
+ }
+}
