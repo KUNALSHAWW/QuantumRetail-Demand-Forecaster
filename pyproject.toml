@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quantumretail"
+version = "2.0.0"
+description = "Stockout-aware probabilistic demand forecasting and inventory decisions for fresh retail"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Kunal Kumar Shaw" }]
+dependencies = [
+  "numpy>=1.26",
+  "pandas>=2.1",
+  "pyarrow>=14",
+  "lightgbm>=4.1",
+  "scikit-learn>=1.4",
+  "huggingface_hub>=0.23",
+]
+
+[project.optional-dependencies]
+app = ["streamlit>=1.35", "plotly>=5.20"]
+api = ["fastapi>=0.110", "uvicorn>=0.29", "pydantic>=2.6"]
+dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.4", "httpx>=0.27", "fastapi>=0.110", "uvicorn>=0.29", "streamlit>=1.35", "plotly>=5.20"]
+
+[tool.setuptools.packages.find]
+include = ["quantumretail*", "api*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 120
+extend-exclude = ["notebook"]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501", "B008", "B905"]
