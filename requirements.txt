@@ -4,5 +4,3 @@ pyarrow>=14
 lightgbm>=4.1
 scikit-learn>=1.4
 huggingface_hub>=0.23
-streamlit>=1.35
-plotly>=5.20

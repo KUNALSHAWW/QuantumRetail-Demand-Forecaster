@@ -1,360 +1,192 @@
 <div align="center">
 
-# ⚡ QuantumRetail Demand Forecaster
+# QuantumRetail
 
-### *Advanced Machine Learning Pipeline for Intelligent Retail Demand Prediction*
+### Forecast what customers wanted, not just what sold
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io)
-[![XGBoost](https://img.shields.io/badge/XGBoost-337AB7?logo=xgboost&logoColor=white)](https://xgboost.ai/)
-[![LightGBM](https://img.shields.io/badge/LightGBM-02569B?logo=lightgbm&logoColor=white)](https://lightgbm.readthedocs.io/)
+Stockout-aware probabilistic demand forecasting with calibrated prediction intervals and inventory decisions, built on the FreshRetailNet-50K dataset
 
-<img width="100%" alt="QuantumRetail Banner" src="assets/quantum_screenshot.png" />
+[![CI](https://github.com/KUNALSHAWW/QuantumRetail-Demand-Forecaster/actions/workflows/ci.yml/badge.svg)](https://github.com/KUNALSHAWW/QuantumRetail-Demand-Forecaster/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![LightGBM](https://img.shields.io/badge/LightGBM-quantile_regression-02569B)](https://lightgbm.readthedocs.io/)
+[![Conformal](https://img.shields.io/badge/uncertainty-conformal_prediction-6f42c1)](docs/METHODOLOGY.md#5-prediction-intervals)
+[![Streamlit](https://img.shields.io/badge/app-Streamlit-FF4B4B?logo=streamlit&logoColor=white)](streamlit-app/app.py)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-*Developed by [KUNALSHAWW](https://github.com/KUNALSHAWW/QuantumRetail-Demand-Forecaster) | Machine Learning Engineer*
-
-[Features](#-key-features) • [Architecture](#-system-architecture) • [Installation](#-installation) • [Usage](#-usage) • [Performance](#-performance-metrics) • [Documentation](#-documentation)
+[The problem](#the-problem) | [What is different](#what-is-different) | [Results](#results) | [Quick start](#quick-start) | [How it works](#how-it-works) | [Limitations](#limitations)
 
 </div>
 
----
-
-## 🎯 Executive Summary
-
-**QuantumRetail Demand Forecaster** is a production-grade machine learning system engineered to solve complex retail forecasting challenges through advanced latent demand recovery and multi-model ensemble techniques. Built on the foundation of FreshRetailNet-50K dataset (898 stores, 18 cities, 90-day temporal window), this platform enables data-driven decision-making for inventory optimization and revenue maximization.
-
-### 🔬 Problem Space
-
-Traditional demand forecasting fails to capture **hidden sales potential** during stockout periods. This system implements sophisticated latent demand recovery algorithms combined with gradient-boosted tree ensembles to predict true demand patterns, accounting for:
-
-- 📦 Stockout-induced demand loss
-- 🌡️ Multi-dimensional weather impact (temperature, humidity, precipitation)
-- 🎉 Promotional and seasonal effects
-- 📅 Temporal patterns (hourly, daily, weekly cycles)
+<p align="center"><img src="docs/screenshots/forecast.png" alt="QuantumRetail dashboard: 7-day probabilistic forecast with calibrated intervals" width="900"></p>
 
 ---
 
-## ✨ Key Features
+## The problem
 
-### 🧠 **Advanced ML Engineering**
+A fresh-food retailer sells out of strawberries at 2 pm. The sales record for the rest of the day says **zero**. A model trained on that history concludes that strawberries are unpopular on that day, forecasts less, and the shelf is empty again tomorrow. Forecasting from sales instead of demand is a self-reinforcing mistake, and in this dataset it is not a corner case: **44% of store-product-days contain a stockout, and raw sales miss an estimated 42% of demand on those days.**
 
-- **Automated Model Selection**: LightGBM & XGBoost ensemble with hyperparameter optimization
-- **Temporal Feature Engineering**: Lag features, rolling statistics, trend decomposition
-- **Latent Demand Recovery**: Mathematical imputation for stockout-period demand estimation
-- **Production-Ready Caching**: Intelligent model persistence with versioning
-- **Real-Time Inference**: Sub-second prediction latency for interactive dashboards
+QuantumRetail treats that gap as the central problem: reconstruct the demand that went unobserved, forecast it with honest uncertainty, and turn the forecast into a stocking decision.
 
-### 📊 **Interactive Analytics Dashboard**
+## What is different
 
-- **Multi-Store/SKU Analysis**: Granular forecasting at store-product level
-- **Visual Performance Metrics**: RMSE, MAE with confidence intervals
-- **Dynamic Data Exploration**: Adjustable training windows and forecast horizons
-- **Comparative Model Insights**: Side-by-side algorithm performance analysis
+| Typical demand-forecasting project | QuantumRetail |
+|---|---|
+| Trains on sales as if sales were demand | **Recovers latent demand** from hourly stockout flags, and *validates the recovery* with simulated stockouts |
+| One model per series (about 80 training rows each) | **One global model** across 10,000 series that generalises to series it has never seen |
+| A single number, or a "confidence band" of plus or minus one standard deviation | **Conformally calibrated intervals** with measured coverage |
+| Stops at the forecast | **Newsvendor inventory decisions** scored on fill rate, waste and cost |
+| Accuracy quoted on data the model has seen | **35,000 held-out series** on the dataset's official evaluation week, and negative results reported |
+| Black box | Exact **SHAP explanations** and a **what-if promotion** simulator |
 
-### 🏗️ **Enterprise Architecture**
+## Results
 
-- **Modular Design**: Separation of concerns (ingestion, transformation, modeling, deployment)
-- **Scalable Data Pipeline**: Parquet-based efficient storage and retrieval
-- **Configuration Management**: Environment-based settings for dev/prod deployments
-- **Error Handling & Logging**: Comprehensive monitoring and debugging capabilities
+All results come from `python -m quantumretail benchmark` and are reproduced in [docs/BENCHMARKS.md](docs/BENCHMARKS.md). The 35,000 test series were never used for training or calibration, and the test week comes after everything the models saw.
 
----
+**1. Demand recovery.** Validated by hiding sales after a realistic sell-out hour on days that never stocked out (300,000 simulated stockouts):
 
-## 🏛️ System Architecture
+| Method | Error (WAPE) | Bias |
+|---|---:|---:|
+| No recovery (raw sales) | 38.2% | -38.2% |
+| Legacy formula `sales x 16 / (16 - stockout hours)` | 30.3% | +7.7% |
+| **Hourly-profile estimator (this project)** | **25.8%** | **+0.3%** |
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Data Ingestion Layer                         │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  HuggingFace Hub → Parquet Storage → Validation        │   │
-│  └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                 Feature Engineering Pipeline                     │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  • Temporal Transformations                            │   │
-│  │  • Latent Demand Recovery Algorithm                    │   │
-│  │  • Statistical Feature Creation                        │   │
-│  │  • Data Quality Filtering                              │   │
-│  └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                    Model Training Layer                          │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐  │
-│  │  LightGBM    │  │   XGBoost    │  │  Ensemble Selector   │  │
-│  │  Regressor   │  │  Regressor   │  │  (RMSE-based)        │  │
-│  └──────────────┘  └──────────────┘  └──────────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                   Deployment & Inference                         │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  Streamlit Web Application                             │   │
-│  │  • Model Caching (joblib)                              │   │
-│  │  • Interactive Visualizations (matplotlib)             │   │
-│  │  • Real-time Predictions                               │   │
-│  └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-```
+The new estimator removes 15% of the legacy method's error and its bias. It is not best everywhere (the legacy formula wins slightly when stock runs out in the first hours of the day) and the legacy formula is worse than doing nothing when stockouts happen late in the day. Both are documented.
 
----
+**2. Forecast accuracy** (7-day horizon, scored on days with no stockout, where observed sales equal true demand):
 
-## 📦 Dataset Specification
+| Model | WAPE | Bias |
+|---|---:|---:|
+| Seasonal naive | 38.9% | -0.8% |
+| 7-day moving average | 32.6% | -1.3% |
+| Global LightGBM on **raw sales** | 32.3% | **-14.2%** |
+| **Global LightGBM on recovered demand** | **31.6%** | **-3.4%** |
 
-**FreshRetailNet-50K** | Large-Scale Retail Sales Dataset
+Training on recovered demand instead of sales cuts the forecast bias from -14.2% to -3.4% and also lowers the error. On a like-for-like sample, one-model-per-series (the v1 approach) scores 38.5% against 35.0% for the global model. Daily sales are small and noisy (about one unit per series per day), so the gains over a strong moving-average baseline are real but modest, and are reported exactly as measured.
 
-| **Attribute**        | **Specification**                                    |
-|---------------------|------------------------------------------------------|
-| **Scope**           | 898 retail stores across 18 geographical regions    |
-| **Temporal Range**  | 90 consecutive days (hourly granularity)            |
-| **Features**        | 15+ dimensions (sales, weather, promotions, etc.)   |
-| **Target Variable** | `sale_amount` (hourly aggregated sales)             |
-| **Complexity**      | Multi-level hierarchy (city → store → product)      |
+**3. Prediction intervals.** The 80% interval covers **79.2%** of outcomes and the 90% interval covers **89.3%**, on a week that comes after the calibration week.
 
-### 🔑 Feature Dictionary
+**4. Inventory.** Ordering at the newsvendor critical fractile of the calibrated forecast costs **2 to 3% less per day** than the best-tuned "mean plus z standard deviations" rule and serves 0.5 to 1.1 more points of demand at the same waste. The baseline's safety factor was tuned on the test data, which favours the baseline.
 
-| **Feature**               | **Type**      | **Description**                                  |
-|---------------------------|---------------|--------------------------------------------------|
-| `sale_amount`             | Target        | Units sold per hour                              |
-| `hours_stock_status`      | Binary        | 1 = stockout, 0 = available                      |
-| `avg_temperature`         | Continuous    | Hourly temperature (°C)                          |
-| `humidity`                | Continuous    | Relative humidity (%)                            |
-| `precpt`                  | Continuous    | Precipitation level                              |
-| `holiday_flag`            | Binary        | 1 = holiday, 0 = regular day                     |
-| `activity_flag`           | Binary        | 1 = promotional activity, 0 = none               |
-| `discount`                | Continuous    | Discount percentage offered                      |
+**5. What drives demand** (within-series, recovered demand): weekends **+33%**, promotions **+40%** (they look like +32% in raw sales because promoted items sell out sooner), holidays +31%, price elasticity about 1.7.
 
----
-
-## 🧪 Experimental Insights
-
-### 📈 Key Findings from EDA
-
-1. **Temporal Patterns**
-   - **Peak Hours**: 10 AM - 2 PM, 5 PM - 7 PM (lunch & evening rush)
-   - **Weekend Effect**: +23% average sales vs. weekdays
-   
-2. **Weather Impact Quantification**
-   - **Temperature Sweet Spot**: 20-30°C optimal range (+18% sales)
-   - **Cold Weather Penalty**: <15°C reduces sales by 12%
-   - **Humidity Correlation**: Moderate humidity (40-60%) maximizes demand
-   
-3. **Promotional Effectiveness**
-   - **Activity Flag**: +45% sales lift during campaigns
-   - **Discount Sensitivity**: Non-linear response (diminishing returns >30%)
-   
-4. **Stockout Analysis**
-   - **Demand Suppression**: Average 34% latent demand during stockouts
-   - **Recovery Impact**: +28% forecast accuracy with latent demand recovery
-
----
-
-## 🚀 Installation
-
-### Prerequisites
-
-- **Python**: 3.8 or higher
-- **pip**: Latest version
-- **Virtual Environment**: Recommended (venv/conda)
-
-### Quick Start
+## Quick start
 
 ```bash
-# Clone the repository
-git clone https://github.com/KUNALSHAWW/FreshRetailNet-50k-Forecast.git
-cd FreshRetailNet-50k-Forecast
+git clone https://github.com/KUNALSHAWW/QuantumRetail-Demand-Forecaster.git
+cd QuantumRetail-Demand-Forecaster
+pip install -r requirements-dev.txt && pip install -e .
 
-# Create isolated environment
-python -m venv venv
-
-# Activate environment
-# Windows
-venv\Scripts\activate
-# Linux/MacOS
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
+streamlit run streamlit-app/app.py      # dashboard; runs on the bundled demo model and 400 held-out series
+python -m quantumretail forecast --store 2 --product 774       # CLI forecast and order plan
+uvicorn api.main:app                    # REST API, docs at /docs
+make test                               # 47 tests, about 15 seconds, no data download
 ```
 
----
-
-## 💻 Usage
-
-### 🖥️ Web Application (Recommended)
+To reproduce the benchmark from scratch:
 
 ```bash
-# Navigate to application directory
-cd streamlit-app
-
-# Launch interactive dashboard
-streamlit run app.py
+make data         # downloads FreshRetailNet-50K (about 115 MB) from Hugging Face
+make benchmark    # about 30 minutes on 12 CPU cores
+make eda
+make demo         # rebuilds the compact demo model
 ```
 
-**Dashboard Features**:
-- 🎛️ Store & Product selector
-- 📊 Adjustable training window
-- 📉 Real-time forecast visualization
-- 🏆 Model performance comparison
-- 💾 Automatic model caching
+## The dashboard
 
-### 🐍 Programmatic API
+- **Forecast**: history with observed vs recovered demand, a 7-day forecast with 80% and 90% calibrated bands, and the actuals when you back-test.
+- **Inventory plan**: set the cost of a lost sale and of waste; get the cost-optimal order per day and the expected fill rate, waste and cost.
+- **Why this forecast**: exact SHAP contributions for any forecast day.
+- **What-if**: switch on a promotion and a price factor and watch the forecast and the order plan change.
+- **Stockouts and recovery**: an hour-by-hour stockout heatmap and the product's demand profile.
+- **Model card**: the benchmark evidence, from the JSON files.
 
-```python
-from src.ingest_transform import get_processed_data
-from src.model_selection import time_series_split, train_and_select_model
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/inventory.png" alt="Inventory plan"><br><sub>Inventory plan: cost-optimal order per day</sub></td>
+<td width="50%"><img src="docs/screenshots/explain.png" alt="SHAP explanation"><br><sub>Why this forecast: exact SHAP contributions</sub></td>
+</tr>
+<tr>
+<td colspan="2"><img src="docs/screenshots/recovery.png" alt="Stockout heatmap"><br><sub>Stockouts and recovery: hour-by-hour out-of-stock map</sub></td>
+</tr>
+</table>
 
-# Load preprocessed data
-df = get_processed_data()
+The interface uses a near-black canvas with layered graphite surfaces and a single sky-blue accent, in the style of modern developer tools (see [Design notes](#design-notes)). Screenshots are taken from the running app on the committed demo model.
 
-# Filter for specific store-product
-subset = df[(df["store_id"] == "S001") & (df["product_id"] == "P042")]
-
-# Create train/validation split
-train, val = time_series_split(subset, train_window=60)
-
-# Train and select best model
-model, metrics = train_and_select_model(train, val)
-
-# Generate predictions
-predictions = model.predict(val.drop(columns=["sale_amount", "dt"]))
-```
-
----
-
-## 📊 Performance Metrics
-
-### Model Comparison (Average across 100 store-product pairs)
-
-| **Algorithm**     | **RMSE** | **MAE** | **R² Score** | **Training Time** |
-|------------------|----------|---------|--------------|-------------------|
-| **LightGBM**     | 12.34    | 8.92    | 0.87         | 0.42s             |
-| **XGBoost**      | 12.58    | 9.15    | 0.86         | 1.23s             |
-| **Baseline (MA)**| 18.76    | 14.32   | 0.62         | 0.01s             |
-
-### System Performance
-
-- **Inference Latency**: <100ms per prediction
-- **Model Load Time**: <50ms (cached)
-- **Data Processing**: ~2s for 90-day dataset
-- **Memory Footprint**: <500MB for typical workload
-
----
-
-## 🛠️ Technical Stack
-
-| **Component**         | **Technology**                          |
-|-----------------------|-----------------------------------------|
-| **Language**          | Python 3.8+                             |
-| **ML Frameworks**     | LightGBM, XGBoost, Scikit-learn         |
-| **Data Processing**   | Pandas, NumPy                           |
-| **Visualization**     | Matplotlib, Seaborn, Plotly             |
-| **Web Framework**     | Streamlit                               |
-| **Storage**           | Parquet (Apache Arrow)                  |
-| **Model Persistence** | Joblib                                  |
-
----
-
-## 📚 Documentation
-
-### Project Structure
+## How it works
 
 ```
-FreshRetailNet-50k-Forecast/
-├── src/
-│   ├── ingest_transform.py    # Data pipeline & feature engineering
-│   ├── model_selection.py     # Model training & evaluation
-│   └── __init__.py
-├── streamlit-app/
-│   └── app.py                 # Interactive web dashboard
-├── notebook/
-│   └── freshretail-net50k.ipynb  # Exploratory analysis
-├── models/                    # Cached trained models
-├── data/
-│   ├── raw/                   # Original datasets
-│   └── processed/             # Engineered features
-├── requirements.txt           # Python dependencies
-├── LICENSE                    # MIT License
-└── README.md                  # This file
+ hourly sales + hourly stockout flags
+            |
+            v
+ hourly-profile recovery  --->  recovered daily demand        (validated by simulated censoring)
+            |
+            v
+ leak-free features at origin t  (history, calendar, known-future promo / price / weather)
+            |
+            v
+ global LightGBM: point (median) + 7 quantile models, horizons 1..7
+            |
+            v
+ split-conformal calibration per horizon  --->  intervals with measured coverage
+            |
+            v
+ newsvendor critical fractile  --->  order quantity, expected fill rate / waste / cost
 ```
 
-### Key Modules
+[docs/METHODOLOGY.md](docs/METHODOLOGY.md) explains each step, the evaluation protocol and why it can be trusted.
 
-#### `ingest_transform.py`
-- **Data Loading**: Direct HuggingFace Hub integration
-- **Latent Demand Recovery**: Custom algorithm implementation
-- **Feature Engineering**: Temporal transformations, lag creation
-- **Data Quality**: Outlier removal, missing value handling
+## REST API
 
-#### `model_selection.py`
-- **Time Series Split**: Temporal validation strategy
-- **Model Training**: Automated LightGBM/XGBoost training
-- **Performance Evaluation**: RMSE, MAE, R² metrics
-- **Model Persistence**: Intelligent caching system
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/forecast?store=&product=` | 7-day forecast with calibrated quantiles and intervals |
+| `POST` | `/order-plan` | newsvendor order quantities for given lost-sale and waste costs |
+| `POST` | `/what-if` | forecast under a discount and promotion scenario |
+| `GET` | `/explain?store=&product=&horizon=` | SHAP contributions |
+| `GET` | `/series`, `/health` | available series, service status |
 
-#### `app.py`
-- **Interactive UI**: Streamlit-based dashboard
-- **Dynamic Filtering**: Store/product selection
-- **Visualization**: Matplotlib forecast plots
-- **Performance Display**: Metrics comparison tables
+## Project structure
 
----
+```
+quantumretail/      data layer, recovery, features, model, conformal, inventory, backtest, service, CLI
+streamlit-app/      the dashboard
+api/                FastAPI service
+tests/              47 tests: recovery, leakage, conformal coverage, inventory maths, API, app smoke test
+benchmarks/results/ the benchmark JSON that every published number is read from
+docs/               METHODOLOGY.md and generated BENCHMARKS.md
+models/qr_v2/       compact demo model (about 8 MB)
+data/demo/          400 held-out series for the demo (about 0.5 MB)
+notebook/           the original exploratory analysis
+```
 
-## 🔮 Future Roadmap
+## Design notes
 
-- [ ] **Deep Learning Integration**: LSTM, Transformer architectures
-- [ ] **Category-Level Forecasting**: Hierarchical demand aggregation
-- [ ] **Bayesian Optimization**: Automated hyperparameter tuning
-- [ ] **Explainability Module**: SHAP values, feature importance analysis
-- [ ] **API Deployment**: FastAPI microservice architecture
-- [ ] **Multi-Horizon Forecasting**: 1-day, 7-day, 30-day predictions
-- [ ] **Anomaly Detection**: Real-time outlier identification
-- [ ] **A/B Testing Framework**: Experiment management system
+The dashboard follows the conventions of products such as Linear, Vercel and PostHog: a dark-first palette (`#08090A` canvas, graphite surfaces, hairline borders), Inter for text and JetBrains Mono for code, tabular numerals for metrics, and one saturated accent used sparingly so the charts stay legible. The theme lives in [quantumretail/ui_theme.py](quantumretail/ui_theme.py) and is applied to Plotly charts through a shared figure style.
 
----
+## Tests
 
-## 🤝 Contributing
+`make test` runs the suite on small synthetic data. Besides ordinary unit tests it checks properties that matter for correctness:
 
-Contributions are welcome! Please follow these guidelines:
+- the profile estimator recovers demand **exactly** when the profile is known, and beats the legacy formula under controlled censoring
+- **no feature leaks the future**: everything after the forecast origin is overwritten and history features must not change
+- conformal intervals restore nominal coverage on deliberately over-confident quantiles
+- SHAP contributions sum to the model output
+- the REST API and the Streamlit app run end to end
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit changes (`git commit -m 'Add AmazingFeature'`)
-4. Push to branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+## Limitations
 
----
+- Three months of data: no yearly seasonality, and weather effects are confounded with the calendar.
+- Recovery is validated by simulation on fully stocked days, which are low-demand by selection; it cannot prove the estimate is unbiased on real stockout days.
+- Forecast and inventory results are scored on stockout-free days, the only days where demand is known. The hardest days are excluded.
+- Conformal guarantees assume the calibration and test weeks are exchangeable; the benchmark reports the coverage actually achieved.
+- A single retailer, region and quarter. Transfer to other data is untested.
 
-## 📄 License
+## Cite
 
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+The dataset: Wang et al., *FreshRetailNet-50K: A Stockout-Annotated Censored Demand Dataset for Latent Demand Recovery and Forecasting in Fresh Retail*, arXiv:2505.16319 (2025). Intervals use Conformalized Quantile Regression (Romano, Patterson and Candes, NeurIPS 2019).
 
----
+## Author
 
-## 🙏 Acknowledgments
+**Kunal Kumar Shaw**: [GitHub](https://github.com/KUNALSHAWW) | [Portfolio](https://kunalshaw.vercel.app/)
 
-- **Dataset Provider**: [FreshRetailNet-50K](https://huggingface.co/datasets/Dingdong-Inc/FreshRetailNet-50K)
-- **Open Source Libraries**: Pandas, Scikit-learn, XGBoost, LightGBM, Streamlit
-- **Community**: Contributors and maintainers
-
----
-
-## 📧 Contact
-
-**Kunal Shaw** - Machine Learning Engineer
-
-[![GitHub](https://img.shields.io/badge/GitHub-KUNALSHAWW-181717?logo=github)](https://github.com/KUNALSHAWW)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0077B5?logo=linkedin)](https://www.linkedin.com/in/kunal-kumar-shaw-443999205/)
-
----
-
-<div align="center">
-
-**⭐ If this project helped you, please star the repository! ⭐**
-
-*Built with ❤️ using Python, Machine Learning, and Coffee ☕*
-
-</div>
+Released under the MIT License.

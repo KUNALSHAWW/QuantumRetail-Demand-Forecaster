@@ -1,0 +1,564 @@
+{
+ "config": {
+  "n_train_series": 10000,
+  "n_calib_series": 5000,
+  "n_test_series": null,
+  "per_series_baseline_n": 300,
+  "seed": 0,
+  "min_share": 0.05
+ },
+ "recovery_validation": {
+  "n_samples": 300000,
+  "fit_days": [
+   0,
+   60
+  ],
+  "mean_stockout_hours_simulated": 6.82751,
+  "none": {
+   "wape": 0.38206807098019313,
+   "wpe": -0.38206807098019313
+  },
+  "legacy": {
+   "wape": 0.30309251743176574,
+   "wpe": 0.07748954664769865
+  },
+  "profile_min_share_0.05": {
+   "wape": 0.25833928783407695,
+   "wpe": 0.0028141783900134582,
+   "share_unreliable": 0.003013333333333333
+  },
+  "profile_min_share_0.10": {
+   "wape": 0.2586336152312476,
+   "wpe": -0.010246932630843973,
+   "share_unreliable": 0.01709
+  },
+  "profile_min_share_0.20": {
+   "wape": 0.26720711896362076,
+   "wpe": -0.04627900539216237,
+   "share_unreliable": 0.05890666666666667
+  },
+  "best_profile_setting": "profile_min_share_0.05",
+  "by_stockout_onset": {
+   "stockout_from_07:00_to_10:00": {
+    "n": 20041,
+    "none_wape": 0.8547682553840744,
+    "legacy_wape": 0.669800750048444,
+    "profile_wape": 0.6918405377213701,
+    "legacy_wpe": -0.07683327478709118,
+    "profile_wpe": -0.050552630828669565
+   },
+   "stockout_from_10:00_to_14:00": {
+    "n": 79700,
+    "none_wape": 0.6126774123948289,
+    "legacy_wape": 0.45879961980502204,
+    "profile_wape": 0.38570773772788036,
+    "legacy_wpe": 0.13180322314848414,
+    "profile_wpe": 0.010811239055303063
+   },
+   "stockout_from_14:00_to_18:00": {
+    "n": 112957,
+    "none_wape": 0.33864362100792356,
+    "legacy_wape": 0.25675647593586026,
+    "profile_wape": 0.21545824144772288,
+    "legacy_wpe": 0.07423940171522851,
+    "profile_wpe": 0.007169548557667255
+   },
+   "stockout_from_18:00_to_22:00": {
+    "n": 87302,
+    "none_wape": 0.11975389762878402,
+    "legacy_wape": 0.13682183779268692,
+    "profile_wape": 0.0979680142154149,
+    "legacy_wpe": 0.06792115678812295,
+    "profile_wpe": 0.002269752716481509
+   }
+  }
+ },
+ "demand_understatement": {
+  "share_of_days_with_stockout": 0.442668,
+  "share_of_days_out_all_day": 0.040398,
+  "unobserved_share_of_demand_on_stockout_days": 0.4174801707267761,
+  "unobserved_share_of_total_demand": 0.24784743785858154
+ },
+ "share_days_imputed": 0.041962,
+ "split": {
+  "train": 10000,
+  "calib": 5000,
+  "test": 35000
+ },
+ "feature_importance_top10": {
+  "mean28": 0.2575155789489161,
+  "mean14": 0.22896316085414625,
+  "product_id": 0.12697188318594355,
+  "store_id": 0.09327672267151195,
+  "mean7": 0.0509233400012576,
+  "obs_mean7": 0.04608317048196602,
+  "discount_rel": 0.04421730374559368,
+  "dow": 0.030278095875944204,
+  "same_dow_mean": 0.027264209767192335,
+  "third_category_id": 0.02294465717413362
+ },
+ "per_series_lightgbm_v1_style": {
+  "n_series": 300,
+  "all_days": {
+   "wape": 0.4028584063053131,
+   "wpe": -0.05562715232372284,
+   "mae": 0.42531853914260864,
+   "rmse": 0.6470682621002197,
+   "n": 2100
+  },
+  "stockout_free_days": {
+   "wape": 0.38463151454925537,
+   "wpe": -0.05930386483669281,
+   "mae": 0.3805541396141052,
+   "rmse": 0.5695580244064331,
+   "n": 1182
+  },
+  "global_lgbm_recovered_demand_same_series": {
+   "all_days": {
+    "wape": 0.37805616005930986,
+    "wpe": 0.07583466162376182,
+    "mae": 0.399133529373554,
+    "rmse": 0.6356924582359362,
+    "n": 2100
+   },
+   "stockout_free_days": {
+    "wape": 0.3502868853737099,
+    "wpe": 0.029516425261169613,
+    "mae": 0.34657359862578796,
+    "rmse": 0.5014995900321197,
+    "n": 1182
+   }
+  }
+ },
+ "point_forecasts": {
+  "seasonal_naive_7d": {
+   "all_days_vs_observed_sales": {
+    "wape": 0.4187292158603668,
+    "wpe": 0.0021479870192706585,
+    "mae": 0.49956169724464417,
+    "rmse": 0.8376952409744263,
+    "n": 245000
+   },
+   "stockout_free_days_vs_true_demand": {
+    "wape": 0.389424204826355,
+    "wpe": -0.00821626652032137,
+    "mae": 0.4816436767578125,
+    "rmse": 0.8001713156700134,
+    "n": 144412
+   }
+  },
+  "moving_average_7d": {
+   "all_days_vs_observed_sales": {
+    "wape": 0.3611803948879242,
+    "wpe": 0.0021479870192706585,
+    "mae": 0.43090349435806274,
+    "rmse": 0.7220301032066345,
+    "n": 245000
+   },
+   "stockout_free_days_vs_true_demand": {
+    "wape": 0.325512170791626,
+    "wpe": -0.013237075880169868,
+    "mae": 0.4025966227054596,
+    "rmse": 0.6730601787567139,
+    "n": 144412
+   }
+  },
+  "global_lgbm_raw_sales": {
+   "all_days_vs_observed_sales": {
+    "wape": 0.3528046069887042,
+    "wpe": -0.11242631290414651,
+    "mae": 0.42091083633261595,
+    "rmse": 0.8104973181707376,
+    "n": 245000
+   },
+   "stockout_free_days_vs_true_demand": {
+    "wape": 0.3231730362610121,
+    "wpe": -0.14248661148059025,
+    "mae": 0.3997035672377987,
+    "rmse": 0.8350331079173925,
+    "n": 144412
+   }
+  },
+  "global_lgbm_recovered_demand": {
+   "all_days_vs_observed_sales": {
+    "wape": 0.3526043469305931,
+    "wpe": 0.01787153023467749,
+    "mae": 0.420671917602889,
+    "rmse": 0.7736748197382209,
+    "n": 245000
+   },
+   "stockout_free_days_vs_true_demand": {
+    "wape": 0.3156699748036518,
+    "wpe": -0.033756226944041956,
+    "mae": 0.3904237075551697,
+    "rmse": 0.7575926809336706,
+    "n": 144412
+   }
+  },
+  "global_lgbm_recovered_demand_q50": {
+   "all_days_vs_observed_sales": {
+    "wape": 0.35115556481552607,
+    "wpe": -0.010061256518208272,
+    "mae": 0.4189434591881265,
+    "rmse": 0.7729015103221042,
+    "n": 245000
+   },
+   "stockout_free_days_vs_true_demand": {
+    "wape": 0.31442036174232363,
+    "wpe": -0.059901631413324954,
+    "mae": 0.38887817391765295,
+    "rmse": 0.7600295152470854,
+    "n": 144412
+   }
+  }
+ },
+ "point_forecasts_by_horizon": {
+  "1": {
+   "seasonal_naive_7d": 0.3799988627433777,
+   "moving_average_7d": 0.3089093267917633,
+   "global_lgbm_raw_sales": 0.3152461380119466,
+   "global_lgbm_recovered_demand": 0.3110286309345262,
+   "global_lgbm_recovered_demand_q50": 0.30934307796034766
+  },
+  "2": {
+   "seasonal_naive_7d": 0.3866754472255707,
+   "moving_average_7d": 0.31647971272468567,
+   "global_lgbm_raw_sales": 0.3209083602336665,
+   "global_lgbm_recovered_demand": 0.3150087631738634,
+   "global_lgbm_recovered_demand_q50": 0.31468147721345124
+  },
+  "3": {
+   "seasonal_naive_7d": 0.41411951184272766,
+   "moving_average_7d": 0.32339468598365784,
+   "global_lgbm_raw_sales": 0.3132275795687133,
+   "global_lgbm_recovered_demand": 0.3124254909045113,
+   "global_lgbm_recovered_demand_q50": 0.31238106575889496
+  },
+  "4": {
+   "seasonal_naive_7d": 0.3862680196762085,
+   "moving_average_7d": 0.31618428230285645,
+   "global_lgbm_raw_sales": 0.3014623636051699,
+   "global_lgbm_recovered_demand": 0.29668208400993407,
+   "global_lgbm_recovered_demand_q50": 0.29528517022351264
+  },
+  "5": {
+   "seasonal_naive_7d": 0.36502721905708313,
+   "moving_average_7d": 0.3516243100166321,
+   "global_lgbm_raw_sales": 0.35535819420940357,
+   "global_lgbm_recovered_demand": 0.33123296613846903,
+   "global_lgbm_recovered_demand_q50": 0.33260309246316955
+  },
+  "6": {
+   "seasonal_naive_7d": 0.3889635503292084,
+   "moving_average_7d": 0.3243259787559509,
+   "global_lgbm_raw_sales": 0.32308326110647595,
+   "global_lgbm_recovered_demand": 0.32004206558045145,
+   "global_lgbm_recovered_demand_q50": 0.3139788439636857
+  },
+  "7": {
+   "seasonal_naive_7d": 0.407634973526001,
+   "moving_average_7d": 0.3386879861354828,
+   "global_lgbm_raw_sales": 0.3376656998520825,
+   "global_lgbm_recovered_demand": 0.3286474589877741,
+   "global_lgbm_recovered_demand_q50": 0.3272446630931227
+  }
+ },
+ "probabilistic_forecasts": {
+  "80pct_interval": {
+   "nominal": 0.8,
+   "raw_quantile_coverage": 0.7912915824169736,
+   "conformal_coverage": 0.791672437193585,
+   "raw_mean_width": 1.2497360488812608,
+   "conformal_mean_width": 1.2473820930523476
+  },
+  "90pct_interval": {
+   "nominal": 0.9,
+   "raw_quantile_coverage": 0.884517907099133,
+   "conformal_coverage": 0.8927859180677507,
+   "raw_mean_width": 1.7274356132055213,
+   "conformal_mean_width": 1.749922917045677
+  },
+  "pinball": {
+   "tau_0.05": {
+    "raw": 0.04322521298161718,
+    "recalibrated": 0.04215450706839075,
+    "empirical_coverage_raw": 0.09075423095033654,
+    "empirical_coverage_recalibrated": 0.06901781015428081
+   },
+   "tau_0.10": {
+    "raw": 0.07483669222706993,
+    "recalibrated": 0.07384567543098453,
+    "empirical_coverage_raw": 0.14559731878237264,
+    "empirical_coverage_recalibrated": 0.11889593662576517
+   },
+   "tau_0.25": {
+    "raw": 0.14219588876271533,
+    "recalibrated": 0.14175889495098573,
+    "empirical_coverage_raw": 0.29059219455446916,
+    "empirical_coverage_recalibrated": 0.26854416530482234
+   },
+   "tau_0.50": {
+    "raw": 0.19517320669606078,
+    "recalibrated": 0.19443908695882647,
+    "empirical_coverage_raw": 0.5530703819627177,
+    "empirical_coverage_recalibrated": 0.5156842921640861
+   },
+   "tau_0.75": {
+    "raw": 0.17595661655169545,
+    "recalibrated": 0.17517287824146754,
+    "empirical_coverage_raw": 0.8005636650693848,
+    "empirical_coverage_recalibrated": 0.7679624961914522
+   },
+   "tau_0.90": {
+    "raw": 0.11868505420179357,
+    "recalibrated": 0.11641478317285589,
+    "empirical_coverage_raw": 0.9348115115087389,
+    "empirical_coverage_recalibrated": 0.9090311054483007
+   },
+   "tau_0.95": {
+    "raw": 0.08176353343262528,
+    "recalibrated": 0.07957033125066347,
+    "empirical_coverage_raw": 0.9714635902833559,
+    "empirical_coverage_recalibrated": 0.9548998698169128
+   }
+  }
+ },
+ "inventory": {
+  "evaluated_on": "stockout-free test days (observed sales equal true demand)",
+  "n_points": 144412,
+  "frontier_conformal_quantile": [
+   {
+    "service_level_target": 0.5,
+    "fill_rate": 0.812838961272708,
+    "waste_rate": 0.1353681435076988,
+    "stockout_rate": 0.48431570783591393,
+    "avg_stock_per_unit_demand": 0.9400983264372071
+   },
+   {
+    "service_level_target": 0.6,
+    "fill_rate": 0.8592666753431734,
+    "waste_rate": 0.17677121682510097,
+    "stockout_rate": 0.3689859568456915,
+    "avg_stock_per_unit_demand": 1.0437762781195392
+   },
+   {
+    "service_level_target": 0.7,
+    "fill_rate": 0.8942994972202551,
+    "waste_rate": 0.22062294600223645,
+    "stockout_rate": 0.27261584909841285,
+    "avg_stock_per_unit_demand": 1.1474542298018713
+   },
+   {
+    "service_level_target": 0.8,
+    "fill_rate": 0.9292989645840518,
+    "waste_rate": 0.28473578800364696,
+    "stockout_rate": 0.16715369913857575,
+    "avg_stock_per_unit_demand": 1.2992387274491375
+   },
+   {
+    "service_level_target": 0.85,
+    "fill_rate": 0.9445569485038411,
+    "waste_rate": 0.32492311215866465,
+    "stockout_rate": 0.12256599174583829,
+    "avg_stock_per_unit_demand": 1.3991842492552375
+   },
+   {
+    "service_level_target": 0.9,
+    "fill_rate": 0.9557878874398216,
+    "waste_rate": 0.362438191883046,
+    "stockout_rate": 0.0909688945516993,
+    "avg_stock_per_unit_demand": 1.4991297710613378
+   },
+   {
+    "service_level_target": 0.95,
+    "fill_rate": 0.9730879138086044,
+    "waste_rate": 0.443460615197254,
+    "stockout_rate": 0.04510013018308728,
+    "avg_stock_per_unit_demand": 1.74846190652526
+   }
+  ],
+  "frontier_uncalibrated_quantile": [
+   {
+    "service_level_target": 0.5,
+    "fill_rate": 0.8252817681416855,
+    "waste_rate": 0.1458223045241865,
+    "stockout_rate": 0.4469296180372822,
+    "avg_stock_per_unit_demand": 0.9661710584493409
+   },
+   {
+    "service_level_target": 0.6,
+    "fill_rate": 0.87042321621427,
+    "waste_rate": 0.18968442989248913,
+    "stockout_rate": 0.3306165692601723,
+    "avg_stock_per_unit_demand": 1.0741780712652285
+   },
+   {
+    "service_level_target": 0.7,
+    "fill_rate": 0.9037626381888771,
+    "waste_rate": 0.2355151064256997,
+    "stockout_rate": 0.2373625460488048,
+    "avg_stock_per_unit_demand": 1.1821850840811157
+   },
+   {
+    "service_level_target": 0.8,
+    "fill_rate": 0.9381733942307376,
+    "waste_rate": 0.30753388454028524,
+    "stockout_rate": 0.13419244938093788,
+    "avg_stock_per_unit_demand": 1.3548293169665098
+   },
+   {
+    "service_level_target": 0.85,
+    "fill_rate": 0.9528509320178408,
+    "waste_rate": 0.3533286026021062,
+    "stockout_rate": 0.09192449380937873,
+    "avg_stock_per_unit_demand": 1.4734700434439596
+   },
+   {
+    "service_level_target": 0.9,
+    "fill_rate": 0.9632504010521626,
+    "waste_rate": 0.3949853117947876,
+    "stockout_rate": 0.06518848849126112,
+    "avg_stock_per_unit_demand": 1.5921107699214099
+   },
+   {
+    "service_level_target": 0.95,
+    "fill_rate": 0.9784687720524279,
+    "waste_rate": 0.4827143908257048,
+    "stockout_rate": 0.028536409716644045,
+    "avg_stock_per_unit_demand": 1.8915445446361543
+   }
+  ],
+  "frontier_mean_plus_z_sigma": [
+   {
+    "z": -0.5,
+    "fill_rate": 0.6987292170524597,
+    "waste_rate": 0.0876988098025322,
+    "stockout_rate": 0.678129241337285,
+    "avg_stock_per_unit_demand": 0.7658974664709308
+   },
+   {
+    "z": -0.25,
+    "fill_rate": 0.7709176540374756,
+    "waste_rate": 0.11862803250551224,
+    "stockout_rate": 0.5666772844361965,
+    "avg_stock_per_unit_demand": 0.8746791524243921
+   },
+   {
+    "z": 0.0,
+    "fill_rate": 0.8306252956390381,
+    "waste_rate": 0.15823209285736084,
+    "stockout_rate": 0.44149378168019277,
+    "avg_stock_per_unit_demand": 0.9867628969549694
+   },
+   {
+    "z": 0.25,
+    "fill_rate": 0.8745710253715515,
+    "waste_rate": 0.20439697802066803,
+    "stockout_rate": 0.33734038722543835,
+    "avg_stock_per_unit_demand": 1.0992555277725558
+   },
+   {
+    "z": 0.5,
+    "fill_rate": 0.9065191149711609,
+    "waste_rate": 0.2518915832042694,
+    "stockout_rate": 0.253358446666482,
+    "avg_stock_per_unit_demand": 1.211748158590142
+   },
+   {
+    "z": 0.75,
+    "fill_rate": 0.929718017578125,
+    "waste_rate": 0.2979237139225006,
+    "stockout_rate": 0.19127911807883002,
+    "avg_stock_per_unit_demand": 1.3242407894077282
+   },
+   {
+    "z": 1.0,
+    "fill_rate": 0.9467142820358276,
+    "waste_rate": 0.34106481075286865,
+    "stockout_rate": 0.14488408165526412,
+    "avg_stock_per_unit_demand": 1.4367335077063343
+   },
+   {
+    "z": 1.28,
+    "fill_rate": 0.9604676961898804,
+    "waste_rate": 0.3853892385959625,
+    "stockout_rate": 0.10722100656455143,
+    "avg_stock_per_unit_demand": 1.5627252472235493
+   },
+   {
+    "z": 1.65,
+    "fill_rate": 0.9728923439979553,
+    "waste_rate": 0.4373789429664612,
+    "stockout_rate": 0.0737127108550536,
+    "avg_stock_per_unit_demand": 1.7292142253586307
+   },
+   {
+    "z": 2.0,
+    "fill_rate": 0.9807075262069702,
+    "waste_rate": 0.4802006781101227,
+    "stockout_rate": 0.051990139323601914,
+    "avg_stock_per_unit_demand": 1.8867040309766792
+   },
+   {
+    "z": 2.5,
+    "fill_rate": 0.9877674579620361,
+    "waste_rate": 0.5322383046150208,
+    "stockout_rate": 0.03335595379885328,
+    "avg_stock_per_unit_demand": 2.111689292611852
+   }
+  ],
+  "fill_rate_at_matched_waste": {
+   "waste_10pct": {
+    "conformal_quantile_policy": null,
+    "uncalibrated_quantile_policy": null,
+    "mean_plus_z_sigma_baseline": 0.7274400482924909
+   },
+   "waste_15pct": {
+    "conformal_quantile_policy": 0.8292465270670839,
+    "uncalibrated_quantile_policy": 0.829581314089379,
+    "mean_plus_z_sigma_baseline": 0.8182144760010678
+   },
+   "waste_20pct": {
+    "conformal_quantile_policy": 0.8778239782969619,
+    "uncalibrated_quantile_policy": 0.8779272543550497,
+    "mean_plus_z_sigma_baseline": 0.8703854109797353
+   },
+   "waste_25pct": {
+    "conformal_quantile_policy": 0.91033655330048,
+    "uncalibrated_quantile_policy": 0.9106835573175595,
+    "mean_plus_z_sigma_baseline": 0.9052467079375305
+   },
+   "waste_30pct": {
+    "conformal_quantile_policy": 0.9350943517138398,
+    "uncalibrated_quantile_policy": 0.9345736849639291,
+    "mean_plus_z_sigma_baseline": 0.9305360103936944
+   }
+  },
+  "newsvendor_cost_per_day": {
+   "cu1_co1": {
+    "newsvendor_conformal": 0.38887817391765295,
+    "best_baseline_z": [
+     0.4025966227054596,
+     0.0
+    ],
+    "moving_average_only": 0.4025966227054596
+   },
+   "cu3_co1": {
+    "newsvendor_conformal": 0.7006915129658702,
+    "best_baseline_z": [
+     0.7243647575378418,
+     0.5
+    ],
+    "moving_average_only": 0.8215650320053101
+   },
+   "cu9_co1": {
+    "newsvendor_conformal": 1.1641478317285592,
+    "best_baseline_z": [
+     1.1849225759506226,
+     1.28
+    ],
+    "moving_average_only": 2.078470468521118
+   }
+  }
+ }
+}
